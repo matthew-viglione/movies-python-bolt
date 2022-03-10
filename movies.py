@@ -156,6 +156,33 @@ def get_movie(title):
     )
 
 
+@app.route("/person/<name>")
+def get_person(name):
+    def work(tx, name_):
+        query = (
+            f"MATCH (person:Person {{name:{name_}}}) "
+            "OPTIONAL MATCH (person:Person)<-[r]-(movie) "
+            "RETURN person.name as name,"
+            "COLLECT([movie.title, "
+            "HEAD(SPLIT(TOLOWER(TYPE(r)), '_')), r.roles]) AS cast "
+            "LIMIT 1"
+        )
+        return tx.run(query).single()
+
+    db = get_db()
+    result = db.read_transaction(work, name)
+
+    return Response(
+        dumps(
+            {
+                "title": result["title"],
+                "cast": [serialize_cast(member) for member in result["cast"]],
+            }
+        ),
+        mimetype="application/json",
+    )
+
+
 @app.route("/movie/<title>/vote", methods=["POST"])
 def vote_in_movie(title):
     def work(tx, title_):
