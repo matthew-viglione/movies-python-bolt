@@ -1,0 +1,2 @@
+MATCH (movie:Movie {title:"The Matrix"}) OPTIONAL MATCH (movie)<-[r]-(person:Person) RETURN movie.title as title, COLLECT([person.name, HEAD(SPLIT(TOLOWER(TYPE(r)), '_')), r.roles]) AS cast LIMIT 1
+MATCH (person:Person {name:"Tom Hanks"}) OPTIONAL MATCH (person:Person)<-[r]-(movie) RETURN person.name as name, COLLECT([movie.title, HEAD(SPLIT(TOLOWER(TYPE(r)), '_')), r.roles]) AS movies LIMIT 1
