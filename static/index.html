@@ -75,7 +75,7 @@
                         <img src="" class="well" id="poster" />
                     </div>
                     <div class="col-md-8 col-sm-8">
-                        <h4>Crew</h4>
+                        <h4>Details</h4>
                         <ul id="crew">
                         </ul>
                     </div>
@@ -123,6 +123,21 @@
                         .click(function () {
                             voteInMovie(data.title)
                         })
+                }, "json");
+            return false;
+        }
+        function showPerson(name) {
+            $.get("/person/" + encodeURIComponent(name),
+                function (data) {
+                    if (!data) return;
+                    $("#title").text(data.name);
+                    const $list = $("#crew").empty();
+                    data.movies.forEach(function (movie) {
+                        $list.append($("<li>" + movie.role + " " + movie.title + "</li>"));
+                        $("#poster").attr("src", "https://neo4j-documentation.github.io/developer-resources/language-guides/assets/posters/" + encodeURIComponent(movie.title) + ".jpg");
+                    });
+                    $("#vote")
+                        .unbind("click")
                 }, "json");
             return false;
         }
@@ -182,9 +197,6 @@
                 .data(graph.links).enter()
                 .append("line")
                 .attr("class", "link")
-                .on("mouseenter", function (data) {
-                    console.log(data)
-                });
 
             const node = svg.selectAll(".node")
                 .data(graph.nodes).enter()
@@ -192,7 +204,12 @@
                 .attr("class", function (d) { return "node " + d.label })
                 .attr("r", 10)
                 .on("click", function (data) {
-                    showMovie(data.title);
+                    if (data.label == 'movie') {
+                        showMovie(data.title);
+                    }
+                    if (data.label == 'actor') {
+                        showPerson(data.title);
+                    }
                 })
                 .call(force.drag);
 

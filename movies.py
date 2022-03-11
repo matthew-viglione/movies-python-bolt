@@ -2,7 +2,6 @@
 from json import dumps
 import logging
 import os
-import sys
 
 from flask import (
     Flask,
@@ -16,11 +15,6 @@ from neo4j import (
 )
 
 
-handler = logging.StreamHandler(sys.stdout)
-handler.setLevel(logging.DEBUG)
-logging.getLogger("neo4j").addHandler(handler)
-logging.getLogger("neo4j").setLevel(logging.DEBUG)
-
 app = Flask(__name__, static_url_path="/static/")
 
 url = os.getenv("NEO4J_URI", "neo4j://localhost")
@@ -29,7 +23,7 @@ password = os.getenv("NEO4J_PASSWORD", "p")
 neo4j_version = os.getenv("NEO4J_VERSION", "4")
 database = os.getenv("NEO4J_DATABASE", "neo4j")
 
-port = os.getenv("PORT", 8080)
+flask_port = os.getenv("PORT", "8080")
 
 driver = GraphDatabase.driver(url, auth=basic_auth(username, password))
 
@@ -65,6 +59,10 @@ def serialize_movie(movie):
         "tagline": movie["tagline"],
         "votes": movie.get("votes", 0),
     }
+
+
+def serialize_movies(movies):
+    return {"title": movies[0], "role": movies[1]}
 
 
 def serialize_cast(cast):
@@ -159,15 +157,15 @@ def get_movie(title):
 @app.route("/person/<name>")
 def get_person(name):
     def work(tx, name_):
-        query = (
-            f"MATCH (person:Person {{name:{name_}}}) "
-            "OPTIONAL MATCH (person:Person)<-[r]-(movie) "
-            "RETURN person.name as name,"
+        return tx.run(
+            "MATCH (person:Person {name:$name}) "
+            "OPTIONAL MATCH (person)-[r]-(movie:Movie) "
+            "RETURN person.name AS name, "
             "COLLECT([movie.title, "
-            "HEAD(SPLIT(TOLOWER(TYPE(r)), '_')), r.roles]) AS cast "
-            "LIMIT 1"
-        )
-        return tx.run(query).single()
+            "REPLACE(TOLOWER(TYPE(r)), '_', ' ')]) AS movies "
+            "LIMIT 1",
+            {"name": name_},
+        ).single()
 
     db = get_db()
     result = db.read_transaction(work, name)
@@ -175,8 +173,8 @@ def get_person(name):
     return Response(
         dumps(
             {
-                "title": result["title"],
-                "cast": [serialize_cast(member) for member in result["cast"]],
+                "name": result["name"],
+                "movies": [serialize_movies(m) for m in result["movies"]],
             }
         ),
         mimetype="application/json",
@@ -202,5 +200,5 @@ def vote_in_movie(title):
 
 if __name__ == "__main__":
     logging.root.setLevel(logging.INFO)
-    logging.info("Starting on port %d, database is at %s", port, url)
-    app.run(port=port)
+    logging.info("Starting on port %s, database is at %s", flask_port, url)
+    app.run(port=flask_port)
